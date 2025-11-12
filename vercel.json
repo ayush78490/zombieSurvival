@@ -1,16 +1,16 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "Build/**/*", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/Build/(.*)", "dest": "/Build/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "Build",
+  "cleanUrls": false,
   "headers": [
     {
       "source": "/Build/(.*)\\.framework\\.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript" }
+      ]
+    },
+    {
+      "source": "/Build/(.*)\\.loader\\.js",
       "headers": [
         { "key": "Content-Type", "value": "application/javascript" }
       ]
@@ -28,13 +28,12 @@
         { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
       ]
-    },
-    {
-      "source": "/Build/(.*)\\.loader\\.js",
-      "headers": [
-        { "key": "Content-Type", "value": "application/javascript" }
-      ]
     }
   ],
-  "outputDirectory": "Build"
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
