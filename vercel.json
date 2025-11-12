@@ -1,20 +1,12 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "Build/**/*",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "Build/**/*", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/Build/(.*)", "dest": "/Build/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
-  "outputDirectory": "Build"
+  "outputDirectory": "."
 }
