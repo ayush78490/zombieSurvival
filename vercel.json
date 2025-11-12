@@ -1,7 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "outputDirectory": "Build",
-  "cleanUrls": false,
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "Build/**/*", "use": "@vercel/static" }
+  ],
   "headers": [
     {
       "source": "/Build/(.*)\\.framework\\.js",
@@ -31,9 +34,7 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/Build/(.*)", "destination": "/Build/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
