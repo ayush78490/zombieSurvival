@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Anime</title>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000000; color: #ffffff; font-family: Arial, sans-serif; overflow: hidden; }
+        #unity-container { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #unity-canvas { background: #231F20; width: 100%; height: 100%; }
+        #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: block; }
+        #unity-progress-bar-empty { width: 300px; height: 24px; background: rgba(255, 255, 255, 0.1); border-radius: 12px; overflow: hidden; }
+        #unity-progress-bar-full { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff88, #00ccff); transition: width 0.3s; }
+        #unity-warning { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(255, 0, 0, 0.8); padding: 20px; border-radius: 10px; display: none; max-width: 500px; }
+        .web3-status { position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.7); padding: 10px 15px; border-radius: 8px; font-size: 12px; z-index: 1000; }
+        .web3-status.connected { background: rgba(0, 255, 100, 0.2); border: 1px solid #00ff64; }
+        .web3-status.disconnected { background: rgba(255, 0, 0, 0.2); border: 1px solid #ff0040; }
+        .debug-info { position: absolute; bottom: 10px; left: 10px; background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 5px; font-size: 10px; max-width: 300px; z-index: 1000; }
+    </style>
+</head>
+<body>
+    <div id="web3-status" class="web3-status disconnected">🔌 Loading Web3...</div>
+    <div id="debug-info" class="debug-info"></div>
+    
+    <div id="unity-container">
+        <canvas id="unity-canvas"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+        </div>
+        <div id="unity-warning"></div>
+    </div>
+
+    <!-- LOAD WEB3 FIRST - SYNCHRONOUSLY -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    
+    <!-- Fallback if primary CDN fails -->
+    <script>
+        if (typeof Web3 === 'undefined') {
+            console.warn('⚠️ Primary CDN failed, loading fallback...');
+            document.write('<script src="https://unpkg.com/web3@1.8.0/dist/web3.min.js"><\/script>');
+        } else {
+            console.log('✅ Web3 loaded successfully from primary CDN');
+        }
+    </script>
+    <!-- LOAD YELLOW INTEGRATION -->
+<script src="yellow-bundle.js"></script>
+
+    <!-- Main Application Script -->
+    <script>
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var warningBanner = document.querySelector("#unity-warning");
+        var web3Status = document.querySelector("#web3-status");
+        var debugInfo = document.querySelector("#debug-info");
+        var unityStarted = false;
+        
+        function updateDebug(msg) {
+            debugInfo.innerHTML += msg + "<br>";
+            console.log(msg);
+        }
+        
+        function unityShowBanner(msg, type) {
+            warningBanner.innerHTML = msg;
+            warningBanner.style.display = 'block';
+        }
+        
+        // Verify Web3 is loaded
+        function verifyWeb3() {
+            updateDebug("🔍 Verifying Web3...");
+            
+            if (typeof Web3 === 'undefined') {
+                updateDebug("❌ CRITICAL: Web3 not loaded!");
+                alert("Web3 failed to load. Please refresh the page.");
+                return false;
+            }
+            
+            updateDebug("✅ Web3 library loaded: v" + (Web3.version || "unknown"));
+            return true;
+        }
+        
+        // Setup Web3 and MetaMask
+        function setupWeb3() {
+            if (!verifyWeb3()) {
+                return false;
+            }
+            
+            if (typeof window.ethereum !== 'undefined') {
+                updateDebug('✅ MetaMask detected');
+                web3Status.textContent = '🦊 MetaMask: Ready';
+                
+                // Initialize Web3 with MetaMask provider
+                try {
+                    window.web3 = new Web3(window.ethereum);
+                    updateDebug('✅ Web3 initialized with MetaMask provider');
+                    updateDebug('✅ window.web3 = ' + (typeof window.web3));
+                } catch (error) {
+                    updateDebug('❌ Error initializing Web3: ' + error.message);
+                    return false;
+                }
+                
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', function(accounts) {
+                    if (accounts.length > 0) {
+                        web3Status.textContent = '🦊 Connected: ' + accounts[0].substring(0, 6) + '...';
+                        web3Status.className = 'web3-status connected';
+                        updateDebug('✅ Account connected: ' + accounts[0].substring(0, 10) + '...');
+                    } else {
+                        web3Status.textContent = '🦊 Disconnected';
+                        web3Status.className = 'web3-status disconnected';
+                        updateDebug('⚠️ Account disconnected');
+                    }
+                });
+                
+                // Listen for chain changes
+                window.ethereum.on('chainChanged', function(chainId) {
+                    updateDebug('🔗 Chain changed to: ' + chainId);
+                });
+                
+            } else {
+                web3Status.textContent = '❌ Install MetaMask';
+                updateDebug('❌ MetaMask not found - install from metamask.io');
+            }
+            
+            return true;
+        }
+        
+        // Start Unity ONLY after Web3 is ready
+        function startUnity() {
+            if (unityStarted) return;
+            unityStarted = true;
+            
+            updateDebug("🎮 Starting Unity...");
+            updateDebug("📦 Web3 status before Unity: " + (typeof Web3));
+            updateDebug("📦 window.web3 status: " + (typeof window.web3));
+            
+            var buildUrl = "Build";
+            var loaderUrl = buildUrl + "/aliBhaiBuild.loader.js";
+            var config = {
+                dataUrl: buildUrl + "/aliBhaiBuild.data",
+                frameworkUrl: buildUrl + "/aliBhaiBuild.framework.js",
+                codeUrl: buildUrl + "/aliBhaiBuild.wasm",
+                streamingAssetsUrl: "StreamingAssets",
+                companyName: "DefaultCompany",
+                productName: "Anime",
+                productVersion: "1.0.2",
+                showBanner: unityShowBanner,
+            };
+
+            var script = document.createElement("script");
+            script.src = loaderUrl;
+            script.onload = function() {
+                createUnityInstance(canvas, config, function(progress) {
+                    progressBarFull.style.width = 100 * progress + "%";
+                }).then(function(unityInstance) {
+                    loadingBar.style.display = "none";
+                    window.unityInstance = unityInstance;
+                    updateDebug("✅ Unity loaded successfully");
+                    updateDebug("✅ Unity can now use Web3!");
+                    // Hide debug info after 10 seconds
+                    setTimeout(function() { 
+                        debugInfo.style.display = 'none'; 
+                    }, 10000);
+                }).catch(function(message) { 
+                    updateDebug("❌ Unity error: " + message);
+                    alert("Unity Error: " + message); 
+                });
+            };
+            script.onerror = function() {
+                updateDebug("❌ Failed to load Unity loader");
+                alert("Failed to load Unity. Check Build folder.");
+            };
+            document.body.appendChild(script);
+        }
+        
+        // Initialize everything in the correct order
+        function initialize() {
+            updateDebug("🚀 Starting initialization...");
+            
+            // Step 1: Wait for Web3 to finish loading
+            var checkCount = 0;
+            var checkInterval = setInterval(function() {
+                checkCount++;
+                
+                if (typeof Web3 !== 'undefined') {
+                    clearInterval(checkInterval);
+                    updateDebug("✅ Web3 detected after " + (checkCount * 100) + "ms");
+                    continueInit();
+                } else if (checkCount > 50) { // 5 seconds timeout
+                    clearInterval(checkInterval);
+                    updateDebug("❌ TIMEOUT: Web3 did not load after 5 seconds!");
+                    alert("CRITICAL ERROR: Web3 library failed to load.\n\nPossible solutions:\n1. Check your internet connection\n2. Try a different browser\n3. Disable ad blockers\n4. Reload the page");
+                } else {
+                    updateDebug("⏳ Waiting for Web3... (" + checkCount + "/50)");
+                }
+            }, 100);
+        }
+        
+        function continueInit() {
+            // Step 2: Verify Web3 loaded
+            if (!verifyWeb3()) {
+                updateDebug("❌ Cannot continue without Web3!");
+                return;
+            }
+            
+            // Step 3: Setup Web3 and MetaMask
+            if (!setupWeb3()) {
+                updateDebug("⚠️ Web3 setup had issues, but continuing...");
+            }
+            
+            // Step 4: Small delay to ensure everything is stable
+            updateDebug("⏳ Waiting 500ms for stability...");
+            setTimeout(function() {
+                startUnity();
+            }, 500);
+        }
+        
+        // Wait for page to fully load, THEN initialize
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            // Page already loaded
+            initialize();
+        }
+    </script>
+</body>
+</html>
